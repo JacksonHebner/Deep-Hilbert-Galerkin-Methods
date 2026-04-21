@@ -42,7 +42,7 @@ model_eval_vec = func.vmap(model_eval, in_dims=(None, 0, None))
 stationary_dist_sample_vec = func.vmap(stationary_dist_sample, in_dims=(0), randomness="different")
 target_dist_sample_vec = func.vmap(target_dist_sample, in_dims=(0), randomness="different")
 
-times = 1000000
+times = 10000
 points = target_dist_sample_vec(torch.zeros(times))
 model_vals = model_eval_vec(sigma, points, model)
 true_vals = true_eval_vec(sigma, points, model)
@@ -95,35 +95,35 @@ pde_resids = pde_op_vec(model, points)
 pde_residual_rmse = torch.sqrt((pde_resids**2).mean()).item()
 print("PDE residual L^2 norm (RMSE):")
 print(pde_residual_rmse)
-#
-# def pde_deriv_errors(sigma, point, model):
-#     #original function, grad, and hessian with graph
-#     def f(z: torch.Tensor) -> torch.Tensor:
-#         input_point_proj = z[0:dim_in]
-#         return model(input_point_proj.unsqueeze(0)) - true_eval(sigma, z, model)
-#     g = func.grad(f)
-#     h = func.hessian(f)
-#
-#     return g(point), h(point)
-#
-# pde_deriv_errors_vec = func.vmap(pde_deriv_errors, in_dims=(None, 0, None))
-# errs = pde_deriv_errors_vec(sigma, points, model)
-#
-# print("L^4 error:")
-# print(((errors**4).mean()**0.25).item())
-#
-# first_deriv_errs = errs[0]
-# print("(w=4) H-norm of gradient error:")
-# print(((first_deriv_errs.norm(dim=1)**4).mean()**0.25).item())
-#
-# second_deriv_errs = errs[1]
-# print("(w=4) Operator-norm of Hessian error:")
-# print(((torch.linalg.norm(second_deriv_errs, ord=2, dim=(1,2))**4).mean()**0.25).item())
-#
-# print("(w=4) Frobenius-norm of Hessian error:")
-# print(((second_deriv_errs.norm(dim=(1,2))**4).mean()**0.25).item())
-#
-# print("(w=4) Sobolev-type norm of Hessian error:")
-# points_2 = target_dist_sample(torch.zeros(times))
-# sob = torch.matmul(second_deriv_errs, points_2).norm(dim=1)
-# print(((sob**4).mean()**0.25).item())
+
+def pde_deriv_errors(sigma, point, model):
+    #original function, grad, and hessian with graph
+    def f(z: torch.Tensor) -> torch.Tensor:
+        input_point_proj = z[0:dim_in]
+        return model(input_point_proj.unsqueeze(0)) - true_eval(sigma, z, model)
+    g = func.grad(f)
+    h = func.hessian(f)
+
+    return g(point), h(point)
+
+pde_deriv_errors_vec = func.vmap(pde_deriv_errors, in_dims=(None, 0, None))
+errs = pde_deriv_errors_vec(sigma, points, model)
+
+print("L^4 error:")
+print(((errors**4).mean()**0.25).item())
+
+first_deriv_errs = errs[0]
+print("(w=4) H-norm of gradient error:")
+print(((first_deriv_errs.norm(dim=1)**4).mean()**0.25).item())
+
+second_deriv_errs = errs[1]
+#print("(w=4) Operator-norm of Hessian error:")
+#print(((torch.linalg.norm(second_deriv_errs, ord=2, dim=(1,2))**4).mean()**0.25).item())
+
+#print("(w=4) Frobenius-norm of Hessian error:")
+#print(((second_deriv_errs.norm(dim=(1,2))**4).mean()**0.25).item())
+
+print("(w=4) Sobolev-type norm of Hessian error:")
+points_2 = target_dist_sample_vec(torch.zeros(times))
+sob = torch.matmul(second_deriv_errs, points_2.unsqueeze(-1)).squeeze(-1).norm(dim=1)
+print(((sob**4).mean()**0.25).item())

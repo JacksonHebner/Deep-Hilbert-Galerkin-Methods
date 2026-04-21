@@ -17,10 +17,10 @@ dim_in = 25
 dim_cutoff_theoretical = 250
 
 model = SimpleNN(dim_in=dim_in, num_neurons=600, num_layers=1, dim_out=1)
-model.load_state_dict(torch.load("Critic, trained control, sigma = trace class, 25 func, 250 hilbert, 600 neur one layer, A2.pt2", weights_only=True, map_location=torch.device('cpu')))
+model.load_state_dict(torch.load("Critic, trained control, sigma = trace class, 25 func, 250 hilbert, 600 neur one layer, QPDE.pt2", weights_only=True, map_location=torch.device('cpu')))
 model.eval()
 model_actor = SimpleNN(dim_in=dim_in, num_neurons=600, num_layers=1, dim_out=dim_in)
-model_actor.load_state_dict(torch.load("Actor, trained control, sigma = trace class, 25 func, 250 hilbert, 600 neur one layer, A2.pt2", weights_only=True, map_location=torch.device('cpu')))
+model_actor.load_state_dict(torch.load("Actor, trained control, sigma = trace class, 25 func, 250 hilbert, 600 neur one layer, QPDE.pt2", weights_only=True, map_location=torch.device('cpu')))
 model_actor.eval()
 
 #trace class covariance noise
@@ -62,7 +62,7 @@ def target_dist_sample(dummy = 1):
 stationary_dist_sample_vec = func.vmap(stationary_dist_sample, in_dims=(0), randomness="different")
 target_dist_sample_vec = func.vmap(target_dist_sample, in_dims=(0), randomness="different")
 
-times = 1000000
+times = 10000
 
 points = target_dist_sample_vec(torch.zeros(times))
 critic_model_vals = model_eval_critic_vec(sigma, points, model)
@@ -91,34 +91,34 @@ print((actor_errors.norm(p=2, dim = 1) / actor_true_vals.norm(p=2, dim = 1)).mea
 print("Actor relative error 2:")
 print(torch.sqrt((actor_errors**2).sum() / (actor_true_vals**2).sum()).item())
 
-# def pde_deriv_errors(sigma, point, model):
-#     #original function, grad, and hessian with graph
-#     def f(z: torch.Tensor) -> torch.Tensor:
-#         input_point_proj = z[0:dim_in]
-#         return model(input_point_proj.unsqueeze(0)) - true_eval_critic(sigma, z, model)
-#     g = func.grad(f)
-#     h = func.hessian(f)
-#
-#     return g(point), h(point)
-#
-# pde_deriv_errors_vec = func.vmap(pde_deriv_errors, in_dims=(None, 0, None))
-# errs = pde_deriv_errors_vec(sigma, points, model)
-#
-# print("L^4 error:")
-# print(((critic_errors**4).mean()**0.25).item())
-#
-# first_deriv_errs = errs[0]
-# print("(w=4) H-norm of gradient error:")
-# print(((first_deriv_errs.norm(dim=1)**4).mean()**0.25).item())
-#
-# second_deriv_errs = errs[1]
+def pde_deriv_errors(sigma, point, model):
+    #original function, grad, and hessian with graph
+    def f(z: torch.Tensor) -> torch.Tensor:
+        input_point_proj = z[0:dim_in]
+        return model(input_point_proj.unsqueeze(0)) - true_eval_critic(sigma, z, model)
+    g = func.grad(f)
+    h = func.hessian(f)
+
+    return g(point), h(point)
+
+pde_deriv_errors_vec = func.vmap(pde_deriv_errors, in_dims=(None, 0, None))
+errs = pde_deriv_errors_vec(sigma, points, model)
+
+print("L^4 error:")
+print(((critic_errors**4).mean()**0.25).item())
+
+first_deriv_errs = errs[0]
+print("(w=4) H-norm of gradient error:")
+print(((first_deriv_errs.norm(dim=1)**4).mean()**0.25).item())
+
+second_deriv_errs = errs[1]
 # print("(w=4) Operator-norm of Hessian error:")
 # print(((torch.linalg.norm(second_deriv_errs, ord=2, dim=(1,2))**4).mean()**0.25).item())
 #
 # print("(w=4) Frobenius-norm of Hessian error:")
 # print(((second_deriv_errs.norm(dim=(1,2))**4).mean()**0.25).item())
-#
-# print("(w=4) Sobolev-type norm of Hessian error:")
-# points_2 = target_dist_sample(torch.zeros(times))
-# sob = torch.matmul(second_deriv_errs, points_2).norm(dim=1)
-# print(((sob**4).mean()**0.25).item())
+
+print("(w=4) Sobolev-type norm of Hessian error:")
+points_2 = target_dist_sample_vec(torch.zeros(times))
+sob = torch.matmul(second_deriv_errs, points_2.unsqueeze(-1)).squeeze(-1).norm(dim=1)
+print(((sob**4).mean()**0.25).item())
